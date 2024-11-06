@@ -4,6 +4,7 @@ import User from "./userModel";
 import bcrypt from "bcrypt";
 import { sign } from "jsonwebtoken";
 import { config } from "../config/config";
+import { User as UserType } from "./userTypes";
 
 export const userCreate = async (
 	req: Request,
@@ -21,7 +22,12 @@ export const userCreate = async (
 	}
 
 	// check if email already exists
-	const checkEmail = await User.findOne({ email });
+	let checkEmail;
+	try {
+		checkEmail = await User.findOne({ email });
+	} catch (error) {
+		return next(createHttpError(500, "Failed to check email: " + error));
+	}
 	if (checkEmail) {
 		const error = createHttpError(400, "Email already exists");
 		return next(error);
@@ -31,26 +37,30 @@ export const userCreate = async (
 	const hashedPassword = await bcrypt.hash(password, 10);
 
 	// create user in database with hashed password
-	const user = new User({ name, email, password: hashedPassword });
+	let user: UserType;
 	try {
-		await user.save();
+		user = new User({ name, email, password: hashedPassword });
 	} catch (error) {
 		const err = createHttpError(500, "Failed to create user: " + error);
 		return next(err);
 	}
 
 	// generating web token for user
-	const token = sign(
-		{
-			sub: user._id,
-		},
-		config.jwt_secret as string,
-		{
-			expiresIn: "1d",
-		}
-	);
+	try {
+		const token = sign(
+			{
+				sub: user._id,
+			},
+			config.jwt_secret as string,
+			{
+				expiresIn: "1d",
+			}
+		);
 
-	// process
-	// response
-	res.status(201).json({ message: "User created successfully", token });
+		res.status(201).json({ message: "User created successfully", token });
+	} catch (error) {
+		return next(
+			createHttpError(500, "Failed to create token for user: " + error)
+		);
+	}
 };
