@@ -71,5 +71,49 @@ export const userLogin = async (
 	res: Response,
 	next: NextFunction
 ) => {
-	res.json({ message: "User logged in successfully" });
+	const { email, password } = req.body;
+	// validate request body for user login
+	if (!email || !password) {
+		const error = createHttpError(400, "email and password are required");
+		return next(error);
+	}
+
+	// check if email exists
+	let user: UserType | null;
+
+	try {
+		user = await User.findOne({ email });
+	} catch (error) {
+		return next(createHttpError(500, "Failed to check email: " + error));
+	}
+	if (!user) {
+		const error = createHttpError(404, "User not found");
+		return next(error);
+	}
+
+	// check if password is correct
+	const isPasswordCorrect = await bcrypt.compare(password, user.password);
+	if (!isPasswordCorrect) {
+		const error = createHttpError(401, "Incorrect username or password");
+		return next(error);
+	}
+
+	// generating web token for user
+	try {
+		const token = sign(
+			{
+				sub: user._id,
+			},
+			config.jwt_secret as string,
+			{
+				expiresIn: "1d",
+			}
+		);
+
+		res.status(200).json({ message: "User logged in successfully", token });
+	} catch (error) {
+		return next(
+			createHttpError(500, "Failed to create token for user: " + error)
+		);
+	}
 };
