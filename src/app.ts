@@ -9,10 +9,6 @@ app.use(express.json());
 
 app.use(morgan("dev"));
 
-app.get("/", (req, res) => {
-	res.json({ message: "Hello World!" });
-});
-
 app.use("/api/users", userRouter);
 
 app.use(globalErrorHandler);
