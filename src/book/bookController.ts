@@ -2,6 +2,9 @@ import { NextFunction, Request, Response } from "express";
 import path from "node:path";
 import cloudinary from "../config/cloudinary";
 import createHttpError from "http-errors";
+import bookModel from "./bookModel";
+import fs from "node:fs";
+import { Book } from "./bookTypes";
 
 export const createBook = async (
 	req: Request,
@@ -32,7 +35,7 @@ export const createBook = async (
 			resource_type: "image",
 			mimetype: coverImageMimeType,
 		});
-		console.log("🚀 ~ uploadResult:", uploadResult);
+		// console.log("🚀 ~ uploadResult:", uploadResult);
 
 		const fileMimeType = files["file"][0].mimetype.split("/").at(-1);
 		const pdfFileName = files.file[0].filename;
@@ -53,9 +56,39 @@ export const createBook = async (
 			mimetype: fileMimeType,
 			format: "pdf",
 		});
-		console.log("🚀 ~ pdfUploadResult:", pdfUploadResult);
+		// console.log("🚀 ~ pdfUploadResult:", pdfUploadResult);
 
-		res.json({});
+		let book: Book;
+		try {
+			book = new bookModel({
+				title: req.body.title,
+				author: req.body.author,
+				pages: req.body.pages,
+				coverImage: uploadResult.secure_url,
+				file: pdfUploadResult.secure_url,
+				genre: req.body.genre,
+			});
+
+			await book.save();
+		} catch (error) {
+			const err = createHttpError(500, "Failed to save book: " + error);
+			return next(err);
+		}
+
+		// remove temporary file from uploads folder:
+		try {
+			await fs.promises.unlink(filePath);
+			await fs.promises.unlink(pdfFilePath);
+		} catch (error) {
+			const err = createHttpError(
+				500,
+				"Failed to remove temporary files from uploads folder: " + error
+			);
+			// res.json({ err });
+			return next(err);
+		}
+
+		res.status(201).json({ book });
 	} catch (error) {
 		const err = createHttpError(500, "Failed to create book: " + error);
 		// res.json({ err });
