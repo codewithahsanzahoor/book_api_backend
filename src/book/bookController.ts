@@ -5,6 +5,7 @@ import createHttpError from "http-errors";
 import bookModel from "./bookModel";
 import fs from "node:fs";
 import { Book } from "./bookTypes";
+import { AuthRequest } from "../middlewares/authentication";
 
 export const createBook = async (
 	req: Request,
@@ -58,11 +59,17 @@ export const createBook = async (
 		});
 		// console.log("🚀 ~ pdfUploadResult:", pdfUploadResult);
 
+		const _req = req as AuthRequest;
+		if (!_req.user_id) {
+			const error = createHttpError(401, "Unauthorized Access Token");
+			return next(error);
+		}
+
 		let book: Book;
 		try {
 			book = new bookModel({
 				title: req.body.title,
-				author: req.body.author,
+				author: _req.user_id,
 				pages: req.body.pages,
 				coverImage: uploadResult.secure_url,
 				file: pdfUploadResult.secure_url,
@@ -88,6 +95,7 @@ export const createBook = async (
 			return next(err);
 		}
 
+		// console.log("userid:");
 		res.status(201).json({ book });
 	} catch (error) {
 		const err = createHttpError(500, "Failed to create book: " + error);
