@@ -40,6 +40,7 @@ export const userCreate = async (
 	let user: UserType;
 	try {
 		user = new User({ name, email, password: hashedPassword });
+		await user.save();
 	} catch (error) {
 		const err = createHttpError(500, "Failed to create user: " + error);
 		return next(err);
@@ -63,4 +64,12 @@ export const userCreate = async (
 			createHttpError(500, "Failed to create token for user: " + error)
 		);
 	}
+};
+
+export const userLogin = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	res.json({ message: "User logged in successfully" });
 };
