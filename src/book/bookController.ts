@@ -285,11 +285,39 @@ export const deleteBook = async (
 			book.coverImage.split("/").at(-2) +
 			"/" +
 			book.coverImage.split("/").at(-1)?.split(".")[0];
+
 		const pdfId =
 			book.file.split("/").at(-2) + "/" + book.file.split("/").at(-1);
-		await cloudinary.uploader.destroy(imageId);
-		await cloudinary.uploader.destroy(pdfId);
-		await bookModel.findOneAndDelete({ _id: bookId });
+		// console.log("🚀 ~ imageId:", imageId);
+		// console.log("🚀 ~ pdfId:", pdfId);
+
+		try {
+			await cloudinary.uploader.destroy(imageId);
+		} catch (error) {
+			const err = createHttpError(
+				500,
+				"Failed to delete files from cloudinary imageId: " + error
+			);
+			return next(err);
+		}
+		try {
+			await cloudinary.uploader.destroy(pdfId, { resource_type: "raw" });
+		} catch (error) {
+			const err = createHttpError(
+				500,
+				"Failed to delete files from cloudinary pdfId: " + error
+			);
+			return next(err);
+		}
+		try {
+			await bookModel.findOneAndDelete({ _id: bookId });
+		} catch (error) {
+			const err = createHttpError(
+				500,
+				"Failed to delete book from database: " + error
+			);
+			return next(err);
+		}
 		res.status(204).json({ message: "Book deleted successfully" });
 	} catch (error) {
 		const err = createHttpError(500, "Failed to delete book: " + error);
