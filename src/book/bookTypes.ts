@@ -1,8 +1,10 @@
+import { User } from "../user/userTypes";
+
 export interface Book {
 	save(): unknown;
 	_id: string;
 	title: string;
-	author: string;
+	author: User;
 	genre: string;
 	coverImage: string;
 	file: string;
