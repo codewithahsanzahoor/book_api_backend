@@ -13,6 +13,12 @@ export const createBook = async (
 	next: NextFunction
 ) => {
 	try {
+		const _req = req as AuthRequest;
+		if (!_req.user_id) {
+			const error = createHttpError(401, "Unauthorized Access Token");
+			return next(error);
+		}
+
 		const files = req.files as {
 			[fieldname: string]: Express.Multer.File[];
 		};
@@ -59,10 +65,17 @@ export const createBook = async (
 		});
 		// console.log("🚀 ~ pdfUploadResult:", pdfUploadResult);
 
-		const _req = req as AuthRequest;
-		if (!_req.user_id) {
-			const error = createHttpError(401, "Unauthorized Access Token");
-			return next(error);
+		// remove temporary file from uploads folder:
+		try {
+			await fs.promises.unlink(filePath);
+			await fs.promises.unlink(pdfFilePath);
+		} catch (error) {
+			const err = createHttpError(
+				500,
+				"Failed to remove temporary files from uploads folder: " + error
+			);
+			// res.json({ err });
+			return next(err);
 		}
 
 		let book: Book;
@@ -77,14 +90,110 @@ export const createBook = async (
 			});
 
 			await book.save();
+
+			res.status(201).json({ book });
 		} catch (error) {
 			const err = createHttpError(500, "Failed to save book: " + error);
 			return next(err);
 		}
+	} catch (error) {
+		const err = createHttpError(500, "Failed to create book: " + error);
+		// res.json({ err });
+		return next(err);
+	}
+};
+
+export const updateBook = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	if (!req.params.id) {
+		const error = createHttpError(400, "book id is required");
+		return next(error);
+	}
+
+	// authorize user
+	const _req = req as AuthRequest;
+	const bookId = req.params.id;
+	const book = await bookModel.findOne({ _id: bookId, author: _req.user_id });
+	if (!book) {
+		const error = createHttpError(
+			401,
+			"Unauthorized Access to update book"
+		);
+		return next(error);
+	}
+
+	// cloudinary upload files if needed (cover image and pdf file) check if files are uploaded:
+	const files = req.files as {
+		[fieldname: string]: Express.Multer.File[];
+	};
+	let completeCoverImageUpload = "";
+	if (files["coverImage"]) {
+		const coverImageMimeType = files["coverImage"][0].mimetype
+			.split("/")
+			.at(-1);
+		const fileName = files.coverImage[0].filename;
+		const filePath = path.resolve(
+			__dirname,
+			"..",
+			"..",
+			"public",
+			"data",
+			"uploads",
+			fileName
+		);
+
+		const uploadResult = await cloudinary.uploader.upload(filePath, {
+			filename_override: fileName,
+			folder: "books-cover",
+			resource_type: "image",
+			mimetype: coverImageMimeType,
+		});
+		completeCoverImageUpload = uploadResult.secure_url;
 
 		// remove temporary file from uploads folder:
 		try {
 			await fs.promises.unlink(filePath);
+		} catch (error) {
+			const err = createHttpError(
+				500,
+				"Failed to remove temporary files from uploads folder: " + error
+			);
+			// res.json({ err });
+			return next(err);
+		}
+		// console.log("🚀 ~ uploadResult:", uploadResult);
+	}
+
+	let completePdfFileUpload = "";
+
+	if (files["file"]) {
+		const fileMimeType = files["file"][0].mimetype.split("/").at(-1);
+		const pdfFileName = files.file[0].filename;
+		const pdfFilePath = path.resolve(
+			__dirname,
+			"..",
+			"..",
+			"public",
+			"data",
+			"uploads",
+			pdfFileName
+		);
+
+		const pdfUploadResult = await cloudinary.uploader.upload(pdfFilePath, {
+			filename_override: pdfFileName,
+			folder: "books-pdf",
+			resource_type: "raw",
+			mimetype: fileMimeType,
+			format: "pdf",
+		});
+
+		completePdfFileUpload = pdfUploadResult.secure_url;
+
+		// remove temporary file from uploads folder:
+		try {
 			await fs.promises.unlink(pdfFilePath);
 		} catch (error) {
 			const err = createHttpError(
@@ -94,12 +203,56 @@ export const createBook = async (
 			// res.json({ err });
 			return next(err);
 		}
+	}
 
-		// console.log("userid:");
-		res.status(201).json({ book });
+	try {
+		const updatedBook = await bookModel.findOneAndUpdate(
+			{ _id: bookId },
+			{
+				...req.body,
+				coverImage: completeCoverImageUpload
+					? completeCoverImageUpload
+					: book.coverImage,
+				file: completePdfFileUpload ? completePdfFileUpload : book.file,
+			},
+			{ new: true }
+		);
+		res.status(200).json({ updatedBook });
 	} catch (error) {
-		const err = createHttpError(500, "Failed to create book: " + error);
-		// res.json({ err });
+		const err = createHttpError(500, "Failed to update book: " + error);
+		return next(err);
+	}
+};
+
+export const singleBookReader = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	const bookParamsId = req.params.bookId;
+	try {
+		const book = await bookModel.findOne({ _id: bookParamsId });
+		if (!book) {
+			const error = createHttpError(404, "Book not found");
+			return next(error);
+		}
+		res.status(200).json({ book });
+	} catch (error) {
+		const err = createHttpError(500, "Failed to get book: " + error);
+		return next(err);
+	}
+};
+
+export const bookReaderAll = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	try {
+		const allBooks = await bookModel.find();
+		res.status(200).json({ allBooks });
+	} catch (error) {
+		const err = createHttpError(500, "Failed to get all books: " + error);
 		return next(err);
 	}
 };
