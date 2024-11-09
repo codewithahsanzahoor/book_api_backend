@@ -256,3 +256,43 @@ export const bookReaderAll = async (
 		return next(err);
 	}
 };
+
+export const deleteBook = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	const _req = req as AuthRequest;
+	const authorId = _req.user_id;
+	const bookId = req.params.id;
+
+	try {
+		const book = await bookModel.findOne({ _id: bookId });
+		if (!book) {
+			const error = createHttpError(404, "Book not found");
+			return next(error);
+		}
+		if (book.author.toString() !== authorId) {
+			const error = createHttpError(
+				403,
+				"You are not authorized to delete this book"
+			);
+			return next(error);
+		}
+
+		// delete files from cloudinary
+		const imageId =
+			book.coverImage.split("/").at(-2) +
+			"/" +
+			book.coverImage.split("/").at(-1)?.split(".")[0];
+		const pdfId =
+			book.file.split("/").at(-2) + "/" + book.file.split("/").at(-1);
+		await cloudinary.uploader.destroy(imageId);
+		await cloudinary.uploader.destroy(pdfId);
+		await bookModel.findOneAndDelete({ _id: bookId });
+		res.status(204).json({ message: "Book deleted successfully" });
+	} catch (error) {
+		const err = createHttpError(500, "Failed to delete book: " + error);
+		return next(err);
+	}
+};
