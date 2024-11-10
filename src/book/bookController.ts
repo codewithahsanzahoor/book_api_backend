@@ -260,7 +260,9 @@ export const singleBookReader = async (
 ) => {
 	const bookParamsId = req.params.bookId;
 	try {
-		const book = await bookModel.findOne({ _id: bookParamsId });
+		const book = await bookModel
+			.findById(bookParamsId)
+			.populate({ path: "author", select: "name" });
 		if (!book) {
 			const error = createHttpError(404, "Book not found");
 			return next(error);
@@ -278,7 +280,10 @@ export const bookReaderAll = async (
 	next: NextFunction
 ) => {
 	try {
-		const allBooks = await bookModel.find();
+		const allBooks = await bookModel.find().populate({
+			path: "author",
+			select: "name",
+		});
 		res.status(200).json({ allBooks });
 	} catch (error) {
 		const err = createHttpError(500, "Failed to get all books: " + error);
