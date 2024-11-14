@@ -6,7 +6,6 @@ import bookModel from "./bookModel";
 import fs from "node:fs";
 import { Book } from "./bookTypes";
 import { AuthRequest } from "../middlewares/authentication";
-
 export const createBook = async (
 	req: Request,
 	res: Response,
@@ -87,6 +86,7 @@ export const createBook = async (
 				coverImage: uploadResult.secure_url,
 				file: pdfUploadResult.secure_url,
 				genre: req.body.genre,
+				description: req.body.description,
 			});
 
 			await book.save();
