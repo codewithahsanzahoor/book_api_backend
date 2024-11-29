@@ -414,15 +414,11 @@ export const booksPerPages = async (
 	console.log(`Limit: ${limit}, Page: ${page}, Offset: ${offset}`);
 
 	if (isNaN(limit) || limit <= 0) {
-		return res
-			.status(400)
-			.json({ error: "Limit must be a positive number." });
+		return next(createHttpError(400, "Limit must be a positive number."));
 	}
 
 	if (isNaN(page) || page <= 0) {
-		return res
-			.status(400)
-			.json({ error: "Page must be a positive number." });
+		return next(createHttpError(400, "Page must be a positive number."));
 	}
 
 	try {
