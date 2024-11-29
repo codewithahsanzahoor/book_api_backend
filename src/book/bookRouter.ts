@@ -1,6 +1,8 @@
 import express from "express";
 import {
+	authorBooks,
 	bookReaderAll,
+	booksPerPages,
 	createBook,
 	deleteBook,
 	singleBookReader,
@@ -32,6 +34,10 @@ bookRouter.put(
 
 bookRouter.get("/:bookId", singleBookReader);
 bookRouter.get("/", bookReaderAll);
+
+bookRouter.get("/authorBooks", authenticate, authorBooks);
+//? pagination for books
+bookRouter.post("/booksPerPages", authenticate, booksPerPages);
 
 bookRouter.delete("/:id", authenticate, deleteBook);
 

@@ -22,6 +22,7 @@ export const authenticate = (
 		// console.log(decoded);
 		const _req = req as AuthRequest;
 		_req.user_id = decoded.sub as string;
+		// console.log(_req.user_id);
 		next();
 	} catch (error) {
 		const err = createHttpError(401, "Unauthorized Access Token" + error);

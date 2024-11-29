@@ -6,6 +6,7 @@ import bookModel from "./bookModel";
 import fs from "node:fs";
 import { Book } from "./bookTypes";
 import { AuthRequest } from "../middlewares/authentication";
+import mongoose from "mongoose";
 export const createBook = async (
 	req: Request,
 	res: Response,
@@ -91,7 +92,7 @@ export const createBook = async (
 
 			await book.save();
 
-			res.status(201).json({ book });
+			res.status(201).json({ id: book._id });
 		} catch (error) {
 			const err = createHttpError(500, "Failed to save book: " + error);
 			return next(err);
@@ -246,7 +247,11 @@ export const updateBook = async (
 			},
 			{ new: true }
 		);
-		res.status(200).json({ updatedBook });
+		if (!updatedBook) {
+			const error = createHttpError(404, "Book not found");
+			return next(error);
+		}
+		res.status(200).json({ id: updatedBook._id });
 	} catch (error) {
 		const err = createHttpError(500, "Failed to update book: " + error);
 		return next(err);
@@ -267,7 +272,7 @@ export const singleBookReader = async (
 			const error = createHttpError(404, "Book not found");
 			return next(error);
 		}
-		res.status(200).json({ book });
+		res.status(200).json(book);
 	} catch (error) {
 		const err = createHttpError(500, "Failed to get book: " + error);
 		return next(err);
@@ -280,11 +285,15 @@ export const bookReaderAll = async (
 	next: NextFunction
 ) => {
 	try {
-		const allBooks = await bookModel.find().populate({
+		const books = await bookModel.find().populate({
 			path: "author",
 			select: "name",
 		});
-		res.status(200).json({ allBooks });
+		if (books.length === 0) {
+			const error = createHttpError(404, "No books found");
+			return next(error);
+		}
+		res.status(200).json(books);
 	} catch (error) {
 		const err = createHttpError(500, "Failed to get all books: " + error);
 		return next(err);
@@ -343,6 +352,8 @@ export const deleteBook = async (
 			);
 			return next(err);
 		}
+
+		// delete book from database
 		try {
 			await bookModel.findOneAndDelete({ _id: bookId });
 		} catch (error) {
@@ -352,9 +363,87 @@ export const deleteBook = async (
 			);
 			return next(err);
 		}
-		res.status(204).json({ message: "Book deleted successfully" });
+		res.status(200).json({
+			id: bookId,
+		});
 	} catch (error) {
 		const err = createHttpError(500, "Failed to delete book: " + error);
+		return next(err);
+	}
+};
+
+export const authorBooks = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	const _req = req as AuthRequest;
+	const authorId = _req.user_id;
+
+	// Validate the authorId
+	if (!mongoose.Types.ObjectId.isValid(authorId)) {
+		return next(createHttpError(400, "Invalid author id"));
+	}
+
+	try {
+		// Query the database for books by the author
+		const books = await bookModel.find({ author: authorId });
+
+		// Handle no books found
+		if (books.length === 0) {
+			return next(createHttpError(404, "No books found for this author"));
+		}
+
+		// Respond with the books
+		res.status(200).json(books);
+	} catch (error) {
+		// Handle database query errors
+		return next(createHttpError(500, "Failed to get books: " + error));
+	}
+};
+
+export const booksPerPages = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	const limit = parseInt(req.query.limit as string) || 10;
+	const page = parseInt(req.query.page as string) || 1;
+	const offset = (page - 1) * limit;
+
+	console.log(`Limit: ${limit}, Page: ${page}, Offset: ${offset}`);
+
+	if (isNaN(limit) || limit <= 0) {
+		return res
+			.status(400)
+			.json({ error: "Limit must be a positive number." });
+	}
+
+	if (isNaN(page) || page <= 0) {
+		return res
+			.status(400)
+			.json({ error: "Page must be a positive number." });
+	}
+
+	try {
+		const books = await bookModel.find().skip(offset).limit(limit).exec();
+		const totalPages = Math.ceil(
+			(await bookModel.countDocuments()) / limit
+		);
+		const currentPage = page;
+		res.status(200).json({
+			books,
+			pagination: {
+				totalPages,
+				currentPage,
+				itemsPerPage: limit,
+			},
+		});
+	} catch (error) {
+		const err = createHttpError(
+			500,
+			"Failed to get books per page: " + error
+		);
 		return next(err);
 	}
 };
