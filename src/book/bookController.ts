@@ -7,6 +7,7 @@ import fs from "node:fs";
 import { Book } from "./bookTypes";
 import { AuthRequest } from "../middlewares/authentication";
 import mongoose from "mongoose";
+
 export const createBook = async (
 	req: Request,
 	res: Response,
@@ -407,11 +408,18 @@ export const booksPerPages = async (
 	res: Response,
 	next: NextFunction
 ) => {
-	const limit = parseInt(req.query.limit as string) || 10;
+	const _req = req as AuthRequest;
+	const authorId = _req.user_id;
+	// Validate the authorId
+	if (!mongoose.Types.ObjectId.isValid(authorId)) {
+		return next(createHttpError(400, "Invalid author id"));
+	}
+
+	const limit = parseInt(req.query.limit as string) || 3;
 	const page = parseInt(req.query.page as string) || 1;
 	const offset = (page - 1) * limit;
 
-	console.log(`Limit: ${limit}, Page: ${page}, Offset: ${offset}`);
+	// console.log(`Limit: ${limit}, Page: ${page}, Offset: ${offset}`);
 
 	if (isNaN(limit) || limit <= 0) {
 		return next(createHttpError(400, "Limit must be a positive number."));
@@ -422,11 +430,21 @@ export const booksPerPages = async (
 	}
 
 	try {
-		const books = await bookModel.find().skip(offset).limit(limit).exec();
+		let books = await bookModel
+			.find({ author: authorId })
+			.populate({
+				path: "author",
+			})
+			.skip(offset)
+			.limit(limit)
+			.exec();
 		const totalPages = Math.ceil(
 			(await bookModel.countDocuments()) / limit
 		);
 		const currentPage = page;
+		if (books.length === 0) {
+			books = [];
+		}
 		res.status(200).json({
 			books,
 			pagination: {
