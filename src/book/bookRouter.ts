@@ -33,9 +33,10 @@ bookRouter.put(
 );
 
 bookRouter.get("/:bookId", singleBookReader);
+
 bookRouter.get("/", bookReaderAll);
 
-bookRouter.get("/authorBooks", authenticate, authorBooks);
+bookRouter.post("/authorBooks", authenticate, authorBooks);
 //? pagination for books
 bookRouter.post("/booksPerPages", authenticate, booksPerPages);
 
