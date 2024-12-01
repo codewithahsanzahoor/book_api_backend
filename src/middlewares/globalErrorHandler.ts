@@ -9,6 +9,16 @@ const globalErrorHandler = (
 	next: NextFunction
 ) => {
 	const statusCode = err.statusCode || 500;
+
+	// Log the error details
+	console.error("Error occurred:", {
+		message: err.message,
+		stack: err.stack,
+		statusCode: statusCode,
+		path: req.path,
+		method: req.method,
+	});
+
 	res.status(statusCode).json({
 		message: err.message,
 		stack: config.node_env !== "production" ? err.stack : undefined,
