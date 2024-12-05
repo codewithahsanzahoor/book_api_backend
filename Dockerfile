@@ -6,26 +6,27 @@
 
 # base image for nodejs installation in the container that is system dependency for the application
 FROM node:18-alpine
+# install corepack to use pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # create the working directory in the container
 WORKDIR /app
 
 # copy the package.json and package-lock.json files to the container working directory
-COPY package*.json ./
+COPY package*.json pnpm-lock.yaml ./
 
 # Set environment variable for development
 ENV NODE_ENV=development
 
 # install dependencies
-RUN npm ci
+RUN pnpm install
 
 # copy the source code to the container working directory
 COPY . .
 
-# build the application
-# RUN npm run build
+EXPOSE 3000
 
-CMD [ "npm", "run", "dev" ]
+CMD [ "pnpm", "run", "dev" ]
 
 
 
