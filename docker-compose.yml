@@ -1,0 +1,35 @@
+services: # Define the services
+    web: # Name of the Node.js service
+        build: # Build the Node.js service from the Dockerfile in the current directory
+            context: . # Use the current directory as the build context
+        ports: # Map ports
+            - "3000:3000" # Expose port 3000 on the host to port 3000 on the container
+        environment: # Set environment variables
+            MONGO_CONNECTION_STRING: mongodb://db:27017/book-api
+            PORT: 3000
+        env_file:
+            - .env
+        depends_on: # Ensure MongoDB starts before the Node.js service
+            - db
+        volumes:
+            - ./:/app
+        restart: always
+        networks:
+            - app-network
+
+    db: # Name of the MongoDB service
+        image: mongo:4.4 # Use MongoDB 4.4 image
+        restart: always
+        volumes:
+            - db_data:/data/db
+        ports:
+            - "27017:27017"
+        networks:
+            - app-network
+
+volumes: # Define named volumes
+    db_data: # This will persist MongoDB data
+
+networks: # Define named networks
+    app-network:
+        driver: bridge

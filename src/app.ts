@@ -18,5 +18,11 @@ app.use(morgan("dev"));
 app.use("/api/users", userRouter);
 app.use("/api/books", bookRouter);
 
+app.get("/", (req, res) => {
+	res.status(200).json({
+		message: "Welcome to Ebook API Backend",
+	});
+});
+
 app.use(globalErrorHandler);
 export default app;
