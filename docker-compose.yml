@@ -1,5 +1,5 @@
 services: # Define the services
-    web: # Name of the Node.js service
+    api: # Name of the Node.js service
         build: # Build the Node.js service from the Dockerfile in the current directory
             context: . # Use the current directory as the build context
         ports: # Map ports
