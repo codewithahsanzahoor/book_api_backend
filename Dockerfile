@@ -5,7 +5,7 @@
 #? docker build -t <ahsanzahoor/ebook-api-backend:v1> --platform linux/amd64 . 
 
 # base image for nodejs installation in the container that is system dependency for the application
-FROM node:18-alpine
+FROM node:20-alpine
 
 # create the working directory in the container
 WORKDIR /app
